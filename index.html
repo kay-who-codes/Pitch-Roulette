@@ -480,8 +480,96 @@ function updatePreview(){
 }
 
 /* startup name generator */
-const NAME_A = ['Zap','Nimbl','Gloop','Flux','Blip','Yeti','Kiwi','Pivot','Moxie','Snag','Quill','Zest','Lumen','Bodega','Tango','Fizz','Orbit','Mango','Pebble','Vortex','Bloop','Hoot'];
-const NAME_B = ['ly','ify','io','r','ster','hub','ora','ful','z','base','ium','ee',' Labs',' & Co.'];
+const NAME_A = [
+  // --- original ---
+  'Zap','Nimbl','Gloop','Flux','Blip','Yeti','Kiwi','Pivot','Moxie','Snag','Quill','Zest','Lumen','Bodega','Tango','Fizz','Orbit','Mango','Pebble','Vortex','Bloop','Hoot',
+  // --- new: punchy one-syllable stems ---
+  'Bap','Bot','Brr','Chug','Clunk','Crank','Crimp','Cusp','Dab','Dank','Ding','Dosh','Dot','Drip','Duo','Faff',
+  'Flim','Floop','Fug','Fumbl','Gack','Gawk','Giz','Gob','Gonk','Guff','Gulp','Hmm','Huff','Jam','Jot','Jut',
+  'Kerb','Klut','Krud','Lob','Lop','Lug','Lurk','Mend','Miff','Mog','Moop','Mug','Munch','Nab','Naff','Nip',
+  'Nod','Nook','Nudge','Oik','Oomph','Ooze','Pip','Plop','Plum','Pod','Poke','Pong','Poot','Pudge','Puff','Punt',
+  'Quip','Rab','Rag','Rak','Rib','Rig','Rip','Romp','Rook','Rub','Ruck','Rum','Rut','Sag','Sap','Scrimp',
+  'Scrounge','Scrub','Scuff','Shlurp','Shrug','Skimp','Skronk','Slab','Slick','Slog','Slop','Slug','Slurp','Smug',
+  'Snip','Snub','Sod','Sog','Spam','Spiv','Splat','Splodge','Splosh','Spud','Squib','Squid','Stab','Stodge','Stomp',
+  'Stonk','Strop','Stub','Sulk','Swig','Tat','Throb','Thud','Ting','Tod','Tog','Tosh','Trot','Tug','Twang','Twit',
+  'Ugh','Veep','Wad','Wag','Wazz','Whack','Whiff','Whinge','Wodge','Womp','Yomp','Yonk','Zonk','Zoop','Zug',
+  // --- new: two-syllable / brandable ---
+  'Wangle','Wobble','Waffl','Wonkl','Ziggy','Zoggy','Bramble','Bristl','Cobbl','Crumbl','Dazzl','Dribbl','Dwindl',
+  'Fizzl','Frazzl','Fumbl','Gambl','Grizz','Grumb','Hobbl','Hustl','Jiggl','Jostl','Kindl','Lingr','Lollop','Mangl',
+  'Mingl','Muzzl','Nebbish','Nestl','Noodl','Nuzzl','Poppl','Prick','Puzzl','Rambl','Rattl','Riddl','Rustl','Scamp',
+  'Scrambl','Scrump','Shambl','Shimm','Shuffl','Sizzl','Sniff','Snuffl','Sparkl','Sprinkl','Squabb','Squand',
+  'Squelch','Squirm','Swindl','Tangl','Tinkr','Toss','Trick','Trundl','Tumbl','Twinkl','Wandl','Wimb','Wrinkl',
+  // --- new: UK/regional flavour ---
+  'Bangr','Biff','Chav','Cheeky','Chund','Dodgy','Duff','Fag','FagEnd','Gaffer','Geez','Gobsh','Kebab','Kip',
+  'Knack','Lad','Lash','Loo','Manky','Mint','Mucker','Naff','Numpty','Pleb','Plonk','Prat','Pukka','Quid','Scran',
+  'Sling','Sod','Sorted','Spon','Squiffy','Tosser','Trollied','Wazzock','Yob','Zonked','Bants','Bevv','Blag','Bodge',
+  'Brolly','Chavvy','Chud','Codswallop','Cushty','Dosh','Faff','Flog','Gander','Gobsmack','Hank','Jabber','Kerfuffl',
+  'Knees-up','Lurgy','Mizzl','Moggy','Muppet','Natter','Noggin','Paddy','Palaver','Pillock','Plonker','Pong','Pratfall',
+  'Rummag','Scally','Scunner','Shambl','Skint','Skive','Slog','Snog','Sprog','Squaddie','Strop','Suss','Swot','Telly',
+  'Tizzy','Toff','Tosh','Twit','Wazz','Whinge','Wonky','Yak','Yomp','Zonked',
+  // --- new: pseudo-Latin / Greek / scientific ---
+  'Aero','Aqua','Astro','Bio','Chrono','Cosmo','Cryo','Cyto','Dyna','Echo','Electro','Exo','Geo','Gyro','Helio',
+  'Hydro','Hyper','Hypo','Iso','Kine','Litho','Luna','Macro','Magno','Meta','Micro','Mono','Morph','Nano','Neo',
+  'Nitro','Novo','Octo','Omni','Opti','Orbi','Osm','Paleo','Photo','Plasma','Poly','Proto','Psycho','Pyro','Retro',
+  'Sono','Spectro','Stella','Syn','Techno','Terra','Thermo','Turbo','Ultra','Vecto','Vita','Xeno','Zoa','Zyme',
+  // --- new: mysterious / spooky / feral ---
+  'Abyss','Banshee','Bleak','Bog','Cackle','Crypt','Curse','Dread','Eerie','Fang','Ghoul','Gloom','Grim','Hag',
+  'Haunt','Hex','Hollow','Howl','Lurk','Miasma','Mire','Mist','Molder','Morgue','Murk','Omen','Phantom','Plague',
+  'Polter','Raven','Revenant','Rune','Shade','Shriek','Spectre','Spook','Styx','Swoon','Tomb','Vex','Wail','Wisp',
+  'Wither','Wraith','Wyrd','Yowl',
+  // --- new: food / drink roots ---
+  'Bap','Bean','Beet','Biscuit','Bramble','Brew','Broth','Bun','Butter','Cabbage','Cake','Chai','Cheese','Chilli',
+  'Choc','Chutney','Cider','Cocoa','Crisp','Crumpet','Crust','Curd','Curry','Dough','Dumpling','Eclair','Fig','Flan',
+  'Gherkin','Gin','Gravy','Guava','Haggis','Honey','Hops','Jam','Jelly','Kale','Ketchup','Lager','Lemon','Lentil',
+  'Lime','Loaf','Lychee','Malt','Maple','Marmalade','Mash','Mead','Melon','Meringue','Milk','Mince','Mint','Muffin',
+  'Mustard','Naan','Noodle','Nutmeg','Oat','Olive','Onion','Papaya','Parsnip','Pastry','Peach','Peanut','Pear','Pepper',
+  'Pickle','Pie','Pilsner','Pizza','Plum','Pork','Porridge','Pretzel','Prune','Pudding','Pumpkin','Quince','Radish',
+  'Raisin','Raspberry','Rhubarb','Rice','Rum','Rye','Saffron','Sage','Salami','Scone','Soda','Sorbet','Soup','Soy',
+  'Spud','Squash','Stew','Stout','Stuffing','Sugar','Sultana','Swede','Taffy','Tangerine','Tea','Toast','Toffee',
+  'Tomato','Treacle','Trifle','Truffle','Turnip','Vanilla','Vinegar','Waffle','Walnut','Wasabi','Whisky','Yam','Yeast','Yoghurt',
+  // --- new: animal / creature roots ---
+  'Ant','Ape','Bat','Bear','Beaver','Bee','Beetle','Bison','Boar','Bug','Buzzard','Camel','Cat','Centipede','Chick',
+  'Cobra','Cod','Crab','Crane','Cricket','Croc','Crow','Cub','Deer','Dodo','Dog','Dolphin','Donkey','Dove','Duck',
+  'Eagle','Eel','Elk','Emu','Falcon','Ferret','Finch','Fish','Flea','Fly','Fox','Frog','Gecko','Gnat','Goat','Goose',
+  'Gopher','Gorilla','Grub','Gull','Hamster','Hare','Hawk','Hedgehog','Hen','Heron','Hippo','Hog','Hornet','Hound',
+  'Hummingbird','Hyena','Ibex','Ibis','Impala','Jackal','Jay','Jellyfish','Kite','Kiwi','Koala','Lamb','Lark','Lemur',
+  'Leopard','Lion','Lizard','Llama','Lobster','Locust','Loon','Lynx','Mackerel','Magpie','Mantis','Marmot','Mink',
+  'Mole','Mongoose','Monkey','Moose','Moth','Mouse','Mule','Mussel','Newt','Nightingale','Otter','Owl','Ox','Oyster',
+  'Panda','Panther','Parrot','Peacock','Pelican','Penguin','Pig','Pigeon','Pike','Piranha','Pony','Poodle','Puffin',
+  'Pug','Puma','Quail','Rabbit','Raccoon','Ram','Rat','Raven','Robin','Rooster','Salmon','Sardine','Scorpion','Seal',
+  'Shark','Sheep','Shrew','Shrimp','Skunk','Sloth','Snail','Snake','Sparrow','Spider','Squid','Squirrel','Stag',
+  'Starling','Stoat','Stork','Swan','Swift','Tadpole','Tapir','Termite','Tiger','Toad','Trout','Turkey','Turtle',
+  'Viper','Vole','Vulture','Walrus','Wasp','Weasel','Whale','Wolf','Wombat','Woodpecker','Worm','Wren','Yak','Zebra'
+];
+const NAME_B = [
+  // --- original ---
+  'ly','ify','io','r','ster','hub','ora','ful','z','base','ium','ee',' Labs',' & Co.',
+  // --- new: suffixes ---
+  'able','age','aholic','al','ana','ance','ant','ar','arium','ary','ate','ation','bot','box','buddy','buzz',
+  'cade','camp','central','cha','cial','cio','city','cloud','co','core','craze','craft','crate','cube','cy',
+  'dash','deck','den','dom','dome','doo','dor','drome','drops','dy','ed','ella','en','er','ery','ese','esh',
+  'esque','ette','ex','ey','fest','finder','fix','flip','flow','fly','forge','form','fy','fy','fy','fy',
+  'gasm','gate','gen','genic','gram','graph','grove','guru','haus','head','hood','hop','ia','ial','ian','ic',
+  'ica','icious','icious','ico','ics','ide','idge','ie','ies','ific','ified','ify','ify','ify','ify','ify',
+  'ika','ikins','il','ile','ily','in','ina','ine','ing','ino','io','io','ious','ique','ish','ism','ist','ista',
+  'ite','itude','ity','ium','ium','ive','ivity','ization','ize','izzle','izzle','kin','kart','kit','lab','less',
+  'let','licious','like','ling','lith','log','logic','loop','lot','ly','ly','ly','ly','ly','ly','ly','ly',
+  'magic','mania','market','mart','mate','max','meister','mint','mix','mo','mobile','mod','mojo','monkey','more',
+  'morph','mouth','munger','my','na','nation','nest','net','nic','nik','nomics','nova','nugget','o','ock','od',
+  'oid','oid','ola','ology','omatic','on','one','oo','oon','opolis','ora','orama','orium','ory','osis','ot',
+  'ous','out','ov','ova','pad','pal','pedia','per','phone','pia','pill','pit','plaza','plus','pod','pop','port',
+  'post','print','pro','puff','punk','pup','py','que','quest','quick','quik','quin','r','r','r','rama','rat',
+  'rator','re','repo','rest','rich','rific','right','ring','roo','round','rrific','ry','s','sack','saga','savvy',
+  'scope','sea','sense','server','service','set','shack','shift','shop','show','side','simple','sip','site','sky',
+  'smart','snap','soft','son','sonic','source','space','spa','sphere','spin','spot','spring','squad','square',
+  'stack','stand','star','station','stay','ster','store','stream','street','strong','studio','stuff','suite','sure',
+  'swap','sy','sync','tac','tacular','tail','talk','tan','tastic','tech','tel','temp','tera','teria','tern',
+  'tific','time','tique','tise','tize','to','tone','topia','tor','tory','tower','town','tox','trail','trak',
+  'travel','trek','tribe','tric','tron','tronics','trum','tube','tune','ture','twist','type','ty','ub','ula',
+  'ule','ulous','um','unity','up','ura','ure','us','ush','verse','via','view','ville','vista','vity','viz',
+  'vox','ware','wave','way','web','well','werk','wick','wide','wise','wizz','wood','works','world','worthy','x',
+  'y','yard','y','y','y','y','y','z','z','z','z','zilla','zing','zle','zmo','zone','zoo','zoom','zy'
+];
 function makeName(){
   const a = NAME_A[Math.floor(Math.random()*NAME_A.length)];
   const b = NAME_B[Math.floor(Math.random()*NAME_B.length)];
