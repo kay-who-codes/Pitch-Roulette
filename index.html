@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pitch Roulette</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one column, three stacked card groups (buzzword / industry / audience), fixed pitch bar at the bottom, full-screen pitch card on top. Single dark look, system fonts only so it works offline. */
+:root{
+  color-scheme:dark;
+  --bg:#0f1114;
+  --panel:#171a1f;
+  --panel-2:#1e222a;
+  --line:#2a2f38;
+  --fg:#ece9e2;
+  --muted:#8d939e;
+  --accent:#f2d675;
+  --accent-ink:#1b1707;
+  --buzz:#a99bff; --buzz-bg:rgba(169,155,255,.13);
+  --ind:#5fd0c0;  --ind-bg:rgba(95,208,192,.12);
+  --aud:#ff9a7a;  --aud-bg:rgba(255,154,122,.12);
+  --f-display:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --f-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 var(--f-body);-webkit-tap-highlight-color:transparent}
+.app{
+  max-width:520px;margin:0 auto;
+  padding-block:20px 150px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+header{margin-bottom:22px}
+h1{font:700 1.9rem/1.05 var(--f-display);margin:0;letter-spacing:-.01em}
+.tag{margin:6px 0 0;color:var(--muted);font-size:.9rem}
+.count{margin:10px 0 0;font:.7rem var(--f-mono);color:#5d636e;letter-spacing:.04em}
+
+section{margin-bottom:22px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.sec-label{font:600 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.14em}
+.sec-buzz .sec-label{color:var(--buzz)}
+.sec-ind .sec-label{color:var(--ind)}
+.sec-aud .sec-label{color:var(--aud)}
+.redraw{
+  background:none;border:1px solid var(--line);color:var(--muted);border-radius:999px;
+  padding:6px 12px;font:.78rem var(--f-body);cursor:pointer;min-height:32px;
+}
+.redraw:disabled{opacity:.4;cursor:default}
+.redraw:focus-visible,.card:focus-visible,.btn:focus-visible,.name-btn:focus-visible,.close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.cards{display:flex;flex-direction:column;gap:8px}
+.card{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--panel);border:1.5px solid var(--line);border-radius:12px;
+  padding:13px 14px;min-height:50px;cursor:pointer;user-select:none;text-align:left;color:var(--fg);
+  font:1.02rem/1.25 var(--f-body);width:100%;
+  transition:background .12s,border-color .12s,transform .08s;
+}
+.card:active{transform:scale(.99)}
+.card .mark{
+  flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);
+  display:grid;place-items:center;font-size:.7rem;color:transparent;
+}
+.sec-buzz .card.on{border-color:var(--buzz);background:var(--buzz-bg)}
+.sec-ind  .card.on{border-color:var(--ind);background:var(--ind-bg)}
+.sec-aud  .card.on{border-color:var(--aud);background:var(--aud-bg)}
+.sec-buzz .card.on .mark{background:var(--buzz);border-color:var(--buzz);color:#14112b}
+.sec-ind  .card.on .mark{background:var(--ind);border-color:var(--ind);color:#06201c}
+.sec-aud  .card.on .mark{background:var(--aud);border-color:var(--aud);color:#2b1008}
+.card.wild{border-style:dashed}
+.card input{
+  flex:1;min-width:0;background:transparent;border:none;border-bottom:1px dashed #4a505b;
+  color:var(--fg);font:inherit;padding:2px 0;outline:none;
+}
+.card input:focus{border-bottom-color:var(--accent)}
+.card input::placeholder{color:#6b717c}
+
+.bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(15,17,20,.96);
+  border-top:1px solid var(--line);
+  padding:12px max(16px,env(safe-area-inset-left,0px)) calc(12px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.preview{font:1.02rem/1.3 var(--f-display);min-height:2.6em;display:flex;align-items:center;color:var(--fg)}
+.preview .ph{color:#5d636e}
+.b{color:var(--buzz)} .i{color:var(--ind)} .a{color:var(--aud)} .f{color:var(--muted);font-style:italic}
+.bar-row{display:flex;gap:8px}
+.btn{
+  flex:1;border:none;border-radius:12px;padding:14px 16px;font:600 1rem var(--f-body);cursor:pointer;min-height:48px;
+  background:var(--accent);color:var(--accent-ink);
+}
+.btn.ghost{flex:none;background:var(--panel-2);color:var(--fg);border:1px solid var(--line);font-weight:500}
+.btn:disabled{opacity:.35;cursor:default}
+
+/* full-screen pitch */
+.overlay{
+  position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;
+  padding:calc(72px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));
+}
+.overlay[hidden]{display:none}
+.close{
+  position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:max(14px,env(safe-area-inset-right,0px));
+  width:44px;height:44px;border-radius:50%;background:var(--panel-2);border:1px solid var(--line);color:var(--fg);font-size:1.1rem;cursor:pointer;
+}
+.name-lab{font:.7rem var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.name-btn{
+  background:none;border:none;color:var(--accent);font:700 clamp(2rem,10vw,3.2rem)/1.05 var(--f-display);
+  letter-spacing:-.01em;cursor:pointer;padding:4px 8px;
+}
+.name-hint{font-size:.72rem;color:#5d636e;margin-top:-14px}
+.pitch{
+  font:700 clamp(1.7rem,7.4vw,2.7rem)/1.18 var(--f-display);margin:0;max-width:16em;text-wrap:balance;
+}
+.timer{font:600 2.4rem var(--f-mono);font-variant-numeric:tabular-nums;color:var(--fg);min-height:1.2em}
+.timer.low{color:var(--aud)}
+.over-actions{display:flex;gap:8px;width:100%;max-width:360px}
+.over-actions .btn{flex:1}
+@media (prefers-reduced-motion:reduce){.card{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Pitch Roulette</h1>
+    <p class="tag">Pick one of each. Pitch it out loud.</p>
+    <p class="count" id="count"></p>
+  </header>
+
+  <section class="sec-buzz" id="sec-buzz"></section>
+  <section class="sec-ind" id="sec-ind"></section>
+  <section class="sec-aud" id="sec-aud"></section>
+</div>
+
+<div class="bar">
+  <div class="bar-in">
+    <div class="preview" id="preview"></div>
+    <div class="bar-row">
+      <button class="btn ghost" id="newHand" type="button">New hand</button>
+      <button class="btn" id="pitchBtn" type="button" disabled>Pitch it</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <button class="close" id="closeBtn" type="button" aria-label="Close">✕</button>
+  <div class="name-lab">Introducing</div>
+  <button class="name-btn" id="nameBtn" type="button"></button>
+  <div class="name-hint">tap the name for a new one</div>
+  <p class="pitch" id="pitchText"></p>
+  <div class="timer" id="timer">0:30</div>
+  <div class="over-actions">
+    <button class="btn ghost" id="timerBtn" type="button">Start 30s timer</button>
+  </div>
+</div>
+
+<script>
+const BANK = {
+  buzz:{label:'Buzzword', words:[
+    // --- original ---
+    "AI-Powered","Blockchain-Based","Subscription-Based","Gamified","Carbon-Neutral","Quantum","Peer-to-Peer",
+    "Crowdsourced","Cloud-Native","Artisanal","Hyperlocal","Voice-Activated","Vertically Integrated","Zero-Waste",
+    "Metaverse-Ready","Self-Driving","Influencer-Led","Biometric","Disruptive","On-Demand","Mindful","Decentralized",
+    "Luxury","Open-Source","Augmented-Reality","Algorithmic","Sustainable","Machine-Learning","Pay-What-You-Want",
+    "Swipe-Based","Wearable","Drone-Delivered","Plant-Based","Dopamine-Driven","Probiotic","Haunted","Uber-Style",
+    "Solar-Powered","Handcrafted","Anti-Aging","Mobile-First","Cryptographic","Invite-Only","Telepathic","Premium",
+    "Freemium","Low-Code","Subscription-Free","Mail-Order","Carbon-Negative",
+    // --- new ---
+    "Levelling-Up","Greensleeves-Approved","Off-Grid","Regulated","Bespoke","Contactless","Rent-to-Own","Gig-Economy",
+    "Heritage","Farm-to-Table","Single-Origin","Nudge-Theory","Gamified-Tiered","Post-Brexit","Pre-Loved","As-Seen-On-TV",
+    "Crowdfunded","Tokenised","Immersive","Frictionless","Seamless","Hyper-Personalised","Ethically-Sourced","Fairtrade",
+    "Council-Approved","Nation-State-Grade","Fully-Licensed","Insured","Artisanal-Small-Batch","Stealth","White-Label",
+    "B2B2C","D2C","Omnichannel","Phygital","Synergistic","Holistic","Evidence-Based","Clinically-Proven","Vegan-Certified",
+    "Gluten-Free","Non-Refundable","Discreet","Members-Only","Waitlist-Only","Reverse-Auction","Dynamic-Pricing","Surge-Priced",
+    "Free-Range","Biodynamic","Cultured","Lab-Grown","Hyper-Baroque","Lo-Fi","Analogue","Retro-Futurist","Anti-Algorithmic",
+    "Scent-Marked","Licence-Fee-Funded","Royal-Warrant","Black-Market","Unregulated","Semi-Legal","HMRC-Compliant",
+    "GDPR-Ready","Post-Truth","Reality-Adjacent","Suspiciously-Cheap","Over-Engineered","Under-Staffed","Just-in-Time",
+    "Circular-Economy","Upcycled","Downcycled","Recyclable","Compostable","Biodegradable","Homeopathic","Aromatherapy-Infused",
+    "Frequency-Based","Crystal-Charged","Moon-Phase-Aligned","Subliminal","Psychoactive","Feral","Wolfsbane-Infused"
+  ]},
+  ind:{label:'Industry', words:[
+    // --- original ---
+    "Dog Walking","Funeral Planning","Tax Preparation","Online Dating","Wedding Catering","Parking Enforcement",
+    "Pest Control","Mattress Retail","Hot Sauce","Competitive Napping","Sock Delivery","Lawn Care","Cruise Ships",
+    "Dentistry","Escape Rooms","Public Restrooms","Houseplant Therapy","Gym Memberships","Ghostwriting","Car Washes",
+    "Cheese Delivery","Meal Kits","Online Therapy","Airport Lounges","Karaoke Bars","Pet Insurance","Garage Doors",
+    "Coffee Pods","Tiny Houses","Used Cars","Birthday Parties","Moving Services","Podcasting","Bottled Water",
+    "Greeting Cards","Underwear","Home Inspection","Fortune Telling","Jury Duty","Yoga Retreats","Pizza Delivery",
+    "Interior Design","Self-Storage","Babysitting","Bike Repair","Haircuts","Law Enforcement","Taxidermy",
+    "Fantasy Football","Wedding Photography",
+    // --- new ---
+    "Bin Collection","Queue Management","Umbrella Repair","Pigeon Fancying","Chip Shop","Caravan Holidays","Bingo Halls",
+    "Allotment Management","Church Roof Restoration","Scaffolding","Skip Hire","Mobility Scooters","Meat Raffles",
+    "Snooker Halls","Bowls Clubs","Shoe Repairs","Key Cutting","Tattoo Removal","Hedge Trimming","Gutter Cleaning",
+    "Wedding Disco","Cake Decorating","Hamster Breeding","Pawnbroking","Debt Collection","Bailiff Services","Cremation",
+    "Milk Round","Coal Delivery","Rag-and-Bone","Pantomime","Morris Dancing","Cheese Rolling","Conker Championships",
+    "Worm Charming","Gurning","Well-Dressing","Clog Dancing","Fell Running","Mudlarking","Beekeeping","Falconry",
+    "Pig Racing","Dwarf Throwing","Toe Wrestling","Extreme Ironing","Toilet Attendant","Traffic Wardens","Speed Cameras",
+    "Congestion Charge","Toll Booths","Council Parking Permits","Lost Luggage","Left Luggage","Currency Exchange",
+    "Payday Loans","Bail Bonds","Process Serving","Divorce Law","Will Writing","Probate","Estate Agency","Lettings",
+    "Gas Safety","Boiler Repair","Damp Proofing","Wasp Removal","Gull Deterrence","Rat Catching","Roadkill Collection",
+    "Bouncy Castles","Face Painting","Children's Entertainers","Soft Play","Trampolining","Ice Cream Vans","Fishmongers",
+    "Butchers","Greengrocers","Newsagents","Off-Licences","Betting Shops","Charity Shops","Pound Shops","Vape Shops",
+    "Barbers","Pubs","Microbreweries","Breweries","Gin Distilling","Whisky Bonding","Fish and Chip Vans","Kebab Vans",
+    "Burger Vans","Mobile Phone Repair","Tech Support","IT Consultancy","Cyber Security","Penetration Testing",
+    "Private Investigation","Bounty Hunting","Debt Advice","Food Banks","Warm Banks","Soup Kitchens","Homeless Shelters",
+    "Night Shelters","Rehab Clinics","Bingo Callers","Tarot Readings","Exorcism","Ghost Tours","Jack the Ripper Tours",
+    "Sex Shops","Strip Clubs","Funeral Directors","Undertakers","Gravedigging","Headstone Carving","Crematoriums",
+    "Pet Cremation","Taxidermy Supplies","Insect Farming","Maggot Farming","Cricket Farming","Worm Farming","Pigeon Racing",
+    "Greyhound Racing","Whippet Racing","Ferret Racing","Horse Racing","Point-to-Point","Fox Hunting","Beagling","Fishing",
+    "Coarse Fishing","Sea Angling","Fly Tying","Gun Shops","Shooting Ranges","Airsoft","Paintballing","Laser Quest",
+    "Escape Room Design","Haunted House Attractions","Maze Design","Hedge Maze Maintenance","Topiary","Lawn Bowls",
+    "Crown Green Bowls","Darts","Dominoes","Cribbage","Whist Drives","Raffle Ticket Printing","Meat Raffle Tickets",
+    "Bottle Tombola","Cake Stalls","Jam Making","Chutney Making","Preserves","Fermenting","Kombucha Brewing","Sourdough",
+    "Cheese Making","Pork Pie Making","Black Pudding","Haggis","Faggot Production","Tripe Dressing","Jellied Eels",
+    "Pie and Mash","Mushy Peas","Gravy Granules","Brown Sauce","HP Sauce R&D","Tea Blending","Biscuit Dunking",
+    "Custard Cream Manufacturing","Jaffa Cake Production","Crisp Flavouring","Pork Scratchings","Scampi Fries",
+    "Pickled Egg Production","Gherkin Farming","Marrow Growing","Leek Showing","Onion Showing","Giant Vegetable Growing",
+    "Pumpkin Carving","Scarecrow Building","Guy Fawkes Effigies","Bonfire Night","Fireworks","Sparkler Safety",
+    "Health and Safety","Elf and Safety","Risk Assessment","Method Statements","Toolbox Talks","Site Induction",
+    "CSCS Card Testing","Forklift Training","First Aid Training","Fire Warden Training","Manual Handling",
+    "Food Hygiene Ratings","Environmental Health","Trading Standards","Weights and Measures","Consumer Rights",
+    "Ombudsman Services","Watchdog","Rogue Trader Hunting","Cowboy Builder Tracking","Leaky Roof Detection",
+    "Damp Detection","Mould Remediation","Asbestos Removal","Japanese Knotweed Removal","Himalayan Balsam Eradication",
+    "Grey Squirrel Control","Mink Eradication","Deer Culling","Badger Vaccination","Bat Surveys","Newt Relocation",
+    "Great Crested Newt Consultancy","Ecological Surveys","Tree Surveys","Tree Surgery","Stump Grinding","Log Sales",
+    "Firewood Seasoning","Kindling Bundling","Chimney Sweeping","Stove Installation","Aga Repair","Rayburn Servicing",
+    "Range Cooker Restoration","Vintage Radio Repair","Clock Repair","Bagpipe Repair","Accordion Tuning","Piano Tuning",
+    "Church Organ Tuning","Bell Ringing","Campanology","Change Ringing","Handbell Choirs","Choir Robes","Vicar Supply",
+    "Church Flowers","Brass Polishing","Silver Polishing","Regimental Silver Polishing","Medal Mounting","Medal Engraving",
+    "Trophy Engraving","Sign Writing","Pub Sign Painting","Gold Leafing","Gilding","Picture Framing","Taxidermy Frames",
+    "Butterfly Pinning","Beetle Mounting","Fossil Preparation","Metal Detecting","Mudlarking Permits","Beachcombing",
+    "Bottle Digging","Dump Digging","Metal Detecting Clubs","Geocaching","Orienteering","Rambling","Ramblers Association",
+    "Walking Football","Walking Netball","Zumba","Aqua Aerobics","Line Dancing","Morris Dancing Lessons","Clog Dancing Lessons",
+    "Tap Dancing","Ballroom Dancing","Sequence Dancing","Tea Dances","Ceilidhs","Barn Dances","Hoedowns","Knees-Ups",
+    "Lock-Ins","Pub Quizzes","Quiz Machine Refurbishment","Fruit Machine Repair","Slot Machine Licensing",
+    "Amusement Arcades","Pier Maintenance","Punch and Judy","Seaside Donkeys","Deckchair Hire","Windbreak Hire",
+    "Beach Hut Rental","Ice Cream Concessions","Donkey Sanctuary","Seal Watching","Puffin Cruises","Whale Watching",
+    "Dolphin Spotting","Basking Shark Tours","Rock Pooling","Crabbing","Mackerel Fishing Trips","Lobster Pots",
+    "Oyster Farming","Mussel Farming","Samphire Foraging","Seaweed Harvesting","Dulse Gathering","Nettle Foraging",
+    "Elderflower Foraging","Sloe Gin Making","Damson Gin","Blackberry Picking","Bramble Jelly","Mushroom Foraging",
+    "Magic Mushroom Foraging","Truffle Hunting","Snail Farming","Escargot Preparation","Frog Legs","Crayfish Trapping",
+    "Signal Crayfish Control","Eel Fishing","Elver Fishing","Salmon Poaching","Trout Tickling","Pheasant Plucking",
+    "Grouse Beating","Partridge Shooting","Clay Pigeon Shooting","Ferret Legging","Cheese Rolling Injuries",
+    "Stinging Nettle Eating","Nettle Eating Championships","Worm Charming Championships","Gurning Championships",
+    "Toe Wrestling Championships","Conker Championships","World Pea Shooting","Dwile Flonking","Marlinspike",
+    "Hobby Horsing","Bog Snorkelling","Pie Eating","Black Pudding Throwing","Wellie Wanging","Welly Wanging",
+    "Garden Gnome Production","Gnome Painting","Gnome Liberation","Gnome Returning","Lawn Ornament Repair",
+    "Garden Ornament Restoration","Statuary Repair","Fountain Maintenance","Fish Pond Maintenance","Koi Husbandry",
+    "Koi Vets","Reptile Rescue","Hedgehog Rescue","Bat Rescue","Swan Rescue","Seal Rescue","Donkey Rescue",
+    "Alpaca Trekking","Llama Trekking","Goat Yoga","Ostrich Racing","Camel Racing","Piglet Racing","Duck Racing",
+    "Snail Racing","Cockroach Racing","Worm Racing","Spider Wrestling","Cricket Fighting","Ant Farms","Formicariums",
+    "Vivarium Design","Terrarium Building","Bonsai","Bonsai Theft","Plant Theft","Gnome Theft","Tulip Theft",
+    "Allotment Theft","Vegetable Sabotage","Prize Marrow Security","Giant Onion Protection","Leek Sabotage",
+    "Show Bench Stewarding","Judging","Ribbon Making","Rosette Making","Trophy Supply","Cup Engraving",
+    "Silverware Insurance","Hallmarking","Assaying","Goldsmithing","Silversmithing","Blacksmithing","Farriery",
+    "Wheelwrighting","Cooperage","Thatching","Cob Building","Dry Stone Walling","Hedgelaying","Pargeting",
+    "Wattle and Daub","Lime Plastering","Lead Working","Stained Glass","Bell Founding","Clockmaking","Barometer Repair",
+    "Sundial Design","Weather Vane Forging","Sign Painting","Coach Painting","Canal Boat Painting","Barge Art",
+    "Narrowboat Fit-Out","Canal Maintenance","Lock Keeping","Towpath Maintenance","Bridge Inspection","Viaduct Repair",
+    "Tunnel Maintenance","Level Crossing Operation","Signal Box Staffing","Heritage Railway","Steam Engine Firing",
+    "Traction Engine Driving","Fairground Organ Restoration","Steam Organ Hire","Calliope Tuning","Mechanical Organ Repair",
+    "Barrel Organ Grinding","Monkey Ownership","Punch and Judy Puppet Carving","Marionette Making","Ventriloquism",
+    "Puppetry","Shadow Puppetry","Panto Dames","Panto Villains","Pantomime Cow Hire","Pantomime Horse Hire",
+    "Pantomime Auditions","Panto Rehearsals","Panto Ticket Sales","Panto Reviews","Panto Buses","Panto Coaches",
+    "Panto Merchandise","Panto Programmes","Panto Photographs","Panto DVDs","Panto Soundtracks","Panto Cast Parties",
+    "Panto Afterparties","Panto Hangovers","Panto Therapy","Panto Regret Counselling","Panto Regret Support Groups",
+    "Panto Regret Helplines","Panto Regret Hotlines","Panto Regret Seminars","Panto Regret Workshops",
+    "Panto Regret Retreats","Panto Regret Conferences","Panto Regret Podcasts","Panto Regret Newsletters",
+    "Panto Regret Merchandise","Panto Regret Insurance","Panto Regret Insurance Claims","Panto Regret Insurance Claims Handling",
+    "Panto Regret Insurance Claims Handling Disputes","Panto Regret Insurance Claims Handling Disputes Mediation",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration","Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals Reviews",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals Reviews Ombudsman",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals Reviews Ombudsman Findings",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals Reviews Ombudsman Findings Publication",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals Reviews Ombudsman Findings Publication Uptake",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals Reviews Ombudsman Findings Publication Uptake Backlash",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals Reviews Ombudsman Findings Publication Uptake Backlash Apology",
+    "Panto Regret Insurance Claims Handling Disputes Mediation Arbitration Appeals Tribunals Reviews Ombudsman Findings Publication Uptake Backlash Apology Resignation"
+  ]},
+  aud:{label:'Audience', words:[
+    // --- original ---
+    "Busy Grandparents","Sleep-Deprived Parents","College Students","Retired Pirates","Remote Workers","Cat Owners",
+    "Introverts","Competitive Eaters","Wedding Planners","Small-Town Mayors","Night-Shift Nurses","Influencers",
+    "Conspiracy Theorists","Boomers","Gen Z","Toddlers","Goths","Marathon Runners","Landlords","Amateur Magicians",
+    "Tourists","Overthinkers","Millionaires","Squirrels","Long-Distance Couples","Substitute Teachers","Truck Drivers",
+    "Chess Players","Middle Managers","Astronauts","Procrastinators","Vegans","Dentists","Golden Retrievers",
+    "People Who Reply All","Retired Wrestlers","New Homeowners","Disgraced Politicians","Night Owls","Hypochondriacs",
+    "Bridesmaids","Dads Who Grill","Time Travelers","Birdwatchers","Paranoid Neighbors","Interns",
+    "People Who Say \"Per My Last Email\"","Lighthouse Keepers","Unpaid Cousins","Local Newscasters",
+    // --- new ---
+    "Furloughed Workers","Zero-Hour Contractors","Gig Workers","Delivery Drivers","Just Stop Oil Protesters",
+    "Countryside Alliance Members","Golf Widows","Sunday League Footballers","Pub Landlords","Publicans",
+    "Chuggers","Big Issue Sellers","Buskers","Morris Dancers","Trainspotters","Plane Spotters","Twitchers",
+    "Anglers","Pigeon Fanciers","Whippet Owners","Flat-Cap Wearers","Shell-Suited Youths","Chavs","Townies",
+    "Yummy Mummies","Hooray Henrys","Sloane Rangers","Trustafarians","Rah Girls","Essex Boys","Geordie Shore Cast",
+    "TOWIE Cast","Made in Chelsea Cast","Love Island Contestants","Big Brother Housemates","X Factor Rejects",
+    "Eurovision Superfans","Strictly Superfans","Bake Off Superfans","Gogglebox Participants","Countdown Contestants",
+    "Antiques Roadshow Attendees","Bargain Hunt Contestants","Flog It! Contestants","Homes Under the Hammer Landlords",
+    "Escape to the Country House Hunters","Grand Designs Self-Builders","Location Location Location Couples",
+    "Wanted Down Under Couples","A Place in the Sun Retirees","Benidorm Regulars","Costa del Sol Expats",
+    "Alicante Expats","Ex-Pats","Repats","Remoaners","Leavers","Swing Voters","Tactical Voters","Don't Knows",
+    "Undecideds","Floating Voters","Spoiled Ballot Punchers","Voter ID Forgetters","Polling Station Tellers",
+    "Count Staff","Returning Officers","Election Agents","Party Members","Lifetime Party Members","Party Donors",
+    "Union Reps","Shop Stewards","Scabs","Blacklegs","Picket Line Crossers","Strike Breakers","Zero-Hour Martyrs",
+    "Gig Economy Hawks","Universal Credit Claimants","Pension Credit Claimants","Free School Meal Families",
+    "Holiday Club Kids","Latchkey Kids","Free-Range Kids","Helicopter Parents","Tiger Parents","Snowplough Parents",
+    "Lawnmower Parents","Stealthing Partners","Situationship Partners","Ghosters","Ghostees","Serial Monogamists",
+    "Serial Daters","Catfishers","Catfishees","Tinder Swipers","Hinge Prompt Writers","Bumble First Movers",
+    "Grindr Users","Heteroflexibles","Polyamorists","Throuples","Situationship Therapists","Divorce Lawyers",
+    "Divorcees","Widowers","Widows","Silver Splitters","Grey Divorcees","Second-Marriage Guests",
+    "Third-Marriage Guests","Plus-Ones","Wedding Crashers","Bridezillas","Groomzillas","Bridesmaids-for-Hire",
+    "Best Men","Ushers","Page Boys","Flower Girls","Ring Bearers","Celebrants","Humanist Celebrants","Registrars",
+    "Vicars","Priests","Imams","Rabbis","Humanists","Atheists","Agnostics","Pagans","Wiccans","Druids","Heathens",
+    "Satanists","Pastafarians","Jedi Knights (Census)","Census Takers","Ancestry DNA Testers","23andMe Recipients",
+    "Long-Lost Relatives","Family Tree Hobbyists","Metal Detectorists","Mudlarkers","Antiquarians","Archivists",
+    "Librarians","Mobile Librarians","Bookmobile Drivers","Overdue Book Returners","Library Fines Debtors",
+    "Second-Hand Book Dealers","Charity Shop Volunteers","Charity Shop Regulars","Bargain Hunters","Car Booters",
+    "Carboot Sellers","Antique Dealers","House Clearers","Skip Surfers","Freegans","Dumpster Divers","Bin Divers",
+    "Bin Day Racers","Recycling Enthusiasts","Waste Management Inspectors","Fly-Tippers","Fly-Tip Victims",
+    "Litter Pickers","Gum Spotters","Chewing Gum Removers","Dog Fouling Offenders","Dog Fouling Victims",
+    "Poop Scoop Late-Nighters","Poo Bag Stockpilers","Poo Bag Hoarders","Lost Dog Posters","Lost Cat Owners",
+    "Found Cat Returners","Bird Rescuers","Hedgehog Overwinterers","Slow Worms","Newt Counters","Frog Spawn Takers",
+    "Tadpole Releasers","Pond Dippers","Pond Dredgers","Pond Filling In Neighbours","Pond Objectors",
+    "Planning Objectors","Planning Consultants","Objection Writers","Objection Readers","Appeal Lodgers",
+    "Appeal Winners","Appeal Losers","Judicial Review Applicants","Freedom of Information Requesters",
+    "FOI Refusers","Data Subject Access Requesters","GDPR Compliance Officers","Cookie Banner Accepters",
+    "Cookie Banner Decliners","Cookie Banner Ignorers","Unsubscribe Clickers","Newsletter Hoarders","Inbox Zero Achievers",
+    "Inbox 10,000+ Sufferers","Email Signature Stylists","Reply All Offenders","CC Abusers","BCC Sneaks",
+    "Out of Office Optimists","Auto-Reply Abusers","Read Receipt Demanders","Slack Lurchers","Teams Mute-Allers",
+    "Zoom Background Curators","Camera-Off WFHers","Pants-Off WFHers","Fake Background WFHers","Doorbell Ditch WFHers",
+    "Hermit Crabs","Actual Hermits","Monks","Nuns","Friars","Pilgrims","Camino Walkers","Coast-to-Coasters",
+    "Lands End to John O'Groats Cyclists","Three Peaks Challengers","National Three Peakers","Munro Baggers",
+    "Corbett Baggers","Wainwright Baggers","Wainwright Walkers","Bothies","Bothiers","Bothy Baggers",
+    "Wild Campers","Wild Swimmers","Cold Water Dippers","Skinny Dippers","Naturists","Sunbathers","Sunbed Users",
+    "Fake Tanners","Orange-Faced Reality Stars","Spray Tan Recipients","Tan Line Boasters","Bottle Blondes",
+    "Silver Foxes","Mullet Revivalists","Rat Tail Wearers","Perm Revivalists","Afro Combers","Balding Deniers",
+    "Combover Engineers","Toupee Wearers","Hair Transplant Recipients","Rogaine Users","Wig Wearers","Weave Wearers",
+    "Hair Extension Tuggers","Hair Extension Victims","Man-Bun Wearers","Dreadlock Wearers","Bleach Blonds",
+    "Bleach Accident Survivors","Box Dye Users","Salon Cheaters","Salon Loyalists","Barber Shop Quartets",
+    "Barber Shop Gossips","Barber Shop Lurkers","Turkish Barber Enthusiasts","Wet Shave Aficionados",
+    "Beard Oil Connoisseurs","Moustache Wax Users","Handlebar Moustache Growers","Movember Participants",
+    "No-Shave Novemberers","Decembeard Participants","Beard Transplant Recipients","Beard Envy Sufferers",
+    "Goatee Growers","Soul Patch Wearers","Sideburn Enthusiasts","Mutton Chop Revivalists","Chinstrap Wearers",
+    "Neckbeard Reclaimers","Fedora Wearers","Trilby Tippers","Bowler Hat Wearers","Top Hat Wearers","Flat Cap Wearers",
+    "Beret Wearers","Beanie Wearers","Bobble Hat Wearers","Trapper Hat Wearers","Deerstalker Wearers",
+    "Sherlock Holmes Impersonators","Sherlock Holmes Societies","Miss Marple Impersonators","Hercule Poirot Impersonators",
+    "Agatha Christie Superfans","Midsomer Murders Fans","Midsomer Murders Location Tourists","Inspector Morse Fans",
+    "Morse Code Learners","Train Timetable Readers","Train Timetable Memorisers","Anoraks","Railway Enthusiasts",
+    "Steam Train Chasers","Steam Train Photographers","Steam Train Whistlers","Train Horn Enthusiasts",
+    "Train Horn Complainers","Rail Replacement Bus Users","Rail Replacement Bus Drivers","Rail Replacement Bus Victims",
+    "Rail Strike Sufferers","Rail Strike Enthusiasts","Commuter Cyclists","Foldable Bike Commuters","Boris Bike Users",
+    "Lime Scooter Users","Lime Scooter Vandals","Lime Scooter Collectors","Lime Scooter Chargers","E-Scooter Riders",
+    "E-Scooter Haters","Cargo Bike Parents","School Run Drivers","School Run Walkers","School Run Cyclists",
+    "Lollipop Ladies","Lollipop Men","Crossing Patrol Heroes","Parking Wardens","Traffic Wardens","Speed Camera Vans",
+    "Speed Camera Operators","Speed Camera Victims","Speeding Apologists","Speeding Deniers","Point Takers",
+    "Speed Awareness Course Attendees","Speed Awareness Course Tutors","Speed Awareness Course Sceptics",
+    "DVLA Rejects","DVLA Successes","Driving Test Failers","Driving Test Passers","Learner Drivers","Provisional Drivers",
+    "Full Licence Holders","HGV Drivers","Lorry Drivers","Van Drivers","White Van Men","Man with a Van",
+    "Cowboy Builders","Rogue Traders","Trusted Traders","Checkatrade Members","Which? Trusted Traders","Trading Standards Officers",
+    "Consumer Champions","Watchdog Viewers","Rogue Trader Victims","Cash-in-Hand Traders","Cash-Only Traders",
+    "Card-Only Traders","Contactless Only Traders","Cash Refusers","Cash Hoarders","Cash Under the Mattress Keepers",
+    "Coin Collectors","Stamp Collectors","Beanie Baby Hoarders","Funko Pop Collectors","Lego Investors","Lego Steppers-Onners",
+    "Barefoot Walkers","Sandal Wearers with Socks","Crocs Wearers","Ugg Boot Wearers","Wellie Wearers","Doc Martens Wearers",
+    "Trainer Collectors","Sneakerheads","Shoe Hoarders","Shoe Thieves","Sole Traders","Sole Survivors"
+  ]}
+};
+const KEYS = ['buzz','ind','aud'];
+const HAND_SIZE = 3;
+const WILD_CHANCE = 0.10;
+
+let decks = {}, hand = {}, sel = {}, redrawn = {}, drawn = 0, timerId = null, remaining = 30, wake = null;
+let startupName = '';
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function drawCard(k){
+  if(Math.random() < WILD_CHANCE) return {wild:true, text:''};
+  if(!decks[k] || !decks[k].length) decks[k] = shuffle(BANK[k].words.slice());
+  drawn++;
+  return {text:decks[k].pop()};
+}
+function dealCategory(k){
+  hand[k] = [];
+  for(let i=0;i<HAND_SIZE;i++) hand[k].push(drawCard(k));
+  sel[k] = null;
+}
+function newHand(){
+  KEYS.forEach(k=>{ dealCategory(k); redrawn[k] = false; });
+  render();
+}
+
+function chosen(k){
+  if(sel[k]===null) return '';
+  return (hand[k][sel[k]].text || '').trim();
+}
+
+function render(){
+  KEYS.forEach(k=>{
+    const sec = document.getElementById('sec-'+k);
+    sec.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'sec-head';
+    const lab = document.createElement('div');
+    lab.className = 'sec-label';
+    lab.textContent = BANK[k].label;
+    const rd = document.createElement('button');
+    rd.type = 'button';
+    rd.className = 'redraw';
+    rd.textContent = redrawn[k] ? 'Redrawn' : '↻ Redraw';
+    rd.disabled = redrawn[k];
+    rd.onclick = ()=>{ dealCategory(k); redrawn[k] = true; render(); };
+    head.append(lab, rd);
+    sec.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = 'cards';
+    hand[k].forEach((card, idx)=>{
+      const on = sel[k] === idx;
+      const el = document.createElement('div');
+      el.className = 'card' + (on ? ' on' : '') + (card.wild ? ' wild' : '');
+      el.tabIndex = 0;
+      el.setAttribute('role','button');
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if(card.wild){
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'wild-'+k+'-'+idx;
+        inp.placeholder = 'Blank card: write your own';
+        inp.maxLength = 40;
+        inp.value = card.text;
+        inp.oninput = ()=>{ card.text = inp.value; updatePreview(); };
+        inp.onclick = e=>{ e.stopPropagation(); };
+        inp.onkeydown = e=>{ e.stopPropagation(); };
+        el.appendChild(inp);
+      } else {
+        const t = document.createElement('span');
+        t.textContent = card.text;
+        el.appendChild(t);
+      }
+      const mark = document.createElement('span');
+      mark.className = 'mark';
+      mark.textContent = '✓';
+      el.appendChild(mark);
+      const toggle = ()=>{ sel[k] = on ? null : idx; render(); };
+      el.onclick = toggle;
+      el.onkeydown = e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); toggle(); } };
+      list.appendChild(el);
+    });
+    sec.appendChild(list);
+  });
+  updatePreview();
+  const total = KEYS.reduce((s,k)=>s+BANK[k].words.length,0);
+  document.getElementById('count').textContent = total + ' cards in the deck · ' + drawn + ' drawn this session';
+}
+
+function updatePreview(){
+  const b = chosen('buzz'), i = chosen('ind'), a = chosen('aud');
+  const el = document.getElementById('preview');
+  el.innerHTML = '';
+  const part = (cls, txt, ph)=>{
+    const s = document.createElement('span');
+    if(txt){ s.className = cls; s.textContent = txt; } else { s.className = 'ph'; s.textContent = ph; }
+    return s;
+  };
+  const f = document.createElement('span');
+  f.className = 'f'; f.textContent = ' for ';
+  const wrap = document.createElement('span');
+  wrap.append(part('b', b, 'buzzword'), document.createTextNode(' '), part('i', i, 'industry'), f, part('a', a, 'audience'));
+  el.appendChild(wrap);
+  document.getElementById('pitchBtn').disabled = !(b && i && a);
+}
+
+/* startup name generator */
+const NAME_A = ['Zap','Nimbl','Gloop','Flux','Blip','Yeti','Kiwi','Pivot','Moxie','Snag','Quill','Zest','Lumen','Bodega','Tango','Fizz','Orbit','Mango','Pebble','Vortex','Bloop','Hoot'];
+const NAME_B = ['ly','ify','io','r','ster','hub','ora','ful','z','base','ium','ee',' Labs',' & Co.'];
+function makeName(){
+  const a = NAME_A[Math.floor(Math.random()*NAME_A.length)];
+  const b = NAME_B[Math.floor(Math.random()*NAME_B.length)];
+  return a + b;
+}
+
+/* pitch screen */
+function openPitch(){
+  const b = chosen('buzz'), i = chosen('ind'), a = chosen('aud');
+  if(!(b && i && a)) return;
+  startupName = makeName();
+  document.getElementById('nameBtn').textContent = startupName;
+  const p = document.getElementById('pitchText');
+  p.innerHTML = '';
+  const mk = (cls, txt)=>{ const s=document.createElement('span'); s.className=cls; s.textContent=txt; return s; };
+  p.append(mk('b', b), document.createTextNode(' '), mk('i', i), mk('f', ' for '), mk('a', a));
+  resetTimer();
+  document.getElementById('overlay').hidden = false;
+  document.getElementById('overlay').scrollTop = 0;
+  try{ if(navigator.wakeLock) navigator.wakeLock.request('screen').then(w=>{ wake = w; }).catch(()=>{}); }catch(e){}
+}
+function closePitch(){
+  stopTimer();
+  document.getElementById('overlay').hidden = true;
+  try{ if(wake){ wake.release(); wake = null; } }catch(e){}
+}
+function fmt(s){ return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
+function resetTimer(){
+  stopTimer();
+  remaining = 30;
+  const t = document.getElementById('timer');
+  t.textContent = fmt(remaining);
+  t.classList.remove('low');
+  document.getElementById('timerBtn').textContent = 'Start 30s timer';
+}
+function stopTimer(){ if(timerId){ clearInterval(timerId); timerId = null; } }
+function toggleTimer(){
+  const btn = document.getElementById('timerBtn');
+  const t = document.getElementById('timer');
+  if(timerId || remaining === 0){ resetTimer(); return; }
+  btn.textContent = 'Reset';
+  timerId = setInterval(()=>{
+    remaining--;
+    t.textContent = remaining > 0 ? fmt(remaining) : "Time's up";
+    t.classList.toggle('low', remaining <= 10);
+    if(remaining <= 0){
+      stopTimer();
+      try{ navigator.vibrate && navigator.vibrate([200,100,200]); }catch(e){}
+    }
+  }, 1000);
+}
+
+document.getElementById('newHand').onclick = newHand;
+document.getElementById('pitchBtn').onclick = openPitch;
+document.getElementById('closeBtn').onclick = closePitch;
+document.getElementById('timerBtn').onclick = toggleTimer;
+document.getElementById('nameBtn').onclick = ()=>{
+  startupName = makeName();
+  document.getElementById('nameBtn').textContent = startupName;
+};
+
+newHand();
+</script>
+
+</body>
+</html>
